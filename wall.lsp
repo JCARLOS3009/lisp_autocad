@@ -1,10 +1,11 @@
-(defun c:PAREDE_TOTAL (/ sel_par altura sel_vão total_len total_vão_area total_vão_len i ent obj minpt maxpt p1 p2 dx dy v_len v_alt)
+(defun c:PAREDE_FINAL (/ sel_par h_parede sel_vão total_len total_vão_area total_vão_len i ent obj minpt maxpt p1 p2 dx dy v_len h_vão)
   (vl-load-com)
-  
+  (setq h_vão 0.50) ;; Altura padrão das janelas definida como 0.50m
+
   (princ "\n1. Selecione as linhas/polilinhas das PAREDES: ")
   (if (setq sel_par (ssget '((0 . "LINE,LWPOLYLINE,POLYLINE,ARC"))))
     (progn
-      (setq altura (getdist "\nDigite a altura da parede (pé-direito): "))
+      (setq h_parede (getdist "\nDigite a altura da parede (pé-direito): "))
       (setq total_len 0.0)
       (setq i 0)
       (repeat (sslength sel_par)
@@ -14,10 +15,11 @@
         (setq i (1+ i))
       )
 
-      (princ "\n2. Selecione as polilinhas das ABERTURAS (em planta): ")
+      (princ (strcat "\n2. Selecione as aberturas (considerando altura padrão de " (rtos h_vão 2 2) "m): "))
       (setq total_vão_area 0.0)
       (setq total_vão_len 0.0)
-      (if (setq sel_vão (ssget '((0 . "LWPOLYLINE,POLYLINE"))))
+      
+      (if (setq sel_vão (ssget '((0 . "LWPOLYLINE,POLYLINE,RECTANGLE"))))
         (progn
           (setq i 0)
           (repeat (sslength sel_vão)
@@ -29,32 +31,32 @@
                   dx (abs (- (car p2) (car p1)))
                   dy (abs (- (cadr p2) (cadr p1))))
             
-            ;; LÓGICA DE ORIENTAÇÃO:
-            ;; Assume a maior dimensão horizontal ou vertical como o COMPRIMENTO do vão
-            ;; e a menor como a espessura da parede (que não entra no cálculo de m2)
-            (if (> dx dy) (setq v_len dx v_alt dy) (setq v_len dy v_alt dx))
+            ;; Identifica o comprimento do vão (maior dimensão entre X e Y)
+            (if (> dx dy) (setq v_len dx) (setq v_len dy))
             
-            ;; IMPORTANTE: Aqui usamos a ALTURA fornecida no início para o cálculo da área do vão? 
-            ;; Normalmente, vãos têm alturas específicas (ex: porta 2.10). 
-            ;; Para precisão, este código usa a área real do retângulo desenhado.
             (setq total_vão_len (+ total_vão_len v_len))
-            (setq total_vão_area (+ total_vão_area (vla-get-area obj)))
+            (setq total_vão_area (+ total_vão_area (* v_len h_vão)))
             (setq i (1+ i))
           )
         )
       )
 
-      (setq m2_final (- (* total_len altura) total_vão_area))
-      (alert (strcat "RELATÓRIO FINAL:"
+      (setq m2_final (- (* total_len h_parede) total_vão_area))
+      
+      (alert (strcat "RELATÓRIO DE QUANTITATIVOS:"
                      "\n------------------------------------"
-                     "\nComprimento Parede: " (rtos total_len 2 2) " m"
-                     "\nAltura Parede: " (rtos altura 2 2) " m"
+                     "\nPAREDE:"
+                     "\nComprimento: " (rtos total_len 2 2) " m"
+                     "\nAltura: " (rtos h_parede 2 2) " m"
                      "\n------------------------------------"
-                     "\nSoma Comprimento Vãos: " (rtos total_vão_len 2 2) " m"
-                     "\nÁrea Total de Vãos: " (rtos total_vão_area 2 2) " m²"
+                     "\nABERTURAS (Janelas):"
+                     "\nComprimento Total Vãos: " (rtos total_vão_len 2 2) " m"
+                     "\nAltura Padrão Aplicada: " (rtos h_vão 2 2) " m"
+                     "\nÁrea Descontada: " (rtos total_vão_area 2 2) " m²"
                      "\n------------------------------------"
-                     "\nÁREA LÍQUIDA: " (rtos m2_final 2 2) " m²"))
+                     "\nÁREA LÍQUIDA FINAL: " (rtos m2_final 2 2) " m²"))
     )
+    (princ "\nErro: Nenhuma parede selecionada.")
   )
   (princ)
 )
